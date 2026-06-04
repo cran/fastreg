@@ -7,83 +7,82 @@ show_tree <- function(dir) {
 }
 
 
+## ----options------------------------------------------------------------------
+options(
+  # With a fake project ID and the temporary directory.
+  # Uses `E` rather than `E:` because Windows has issues with a colon in the
+  # path when using a temporary location.
+  fastreg.project_rawdata_dir = fs::path_temp("E/rawdata/701020/"),
+  fastreg.project_workdata_dir = fs::path_temp("E/workdata/701020/parquet-registers/")
+)
+
+
+## ----options-project-profile--------------------------------------------------
+#| filename: "Console"
+#| eval: false
+# usethis::edit_r_profile("project")
+
+
+## ----options-user-profile-----------------------------------------------------
+#| filename: "Console"
+#| eval: false
+# usethis::edit_r_profile("user")
+
+
 ## ----prepare------------------------------------------------------------------
-#| code-fold: true
-#| code-summary: "Show setup code"
-library(fastreg)
+rawdata_dir <- getOption("fastreg.project_rawdata_dir")
+workdata_dir <- getOption("fastreg.project_workdata_dir")
 
-sas_dir <- fs::path_temp("sas-dir")
-fs::dir_create(sas_dir)
-
-bef_list <- simulate_register(
-  "bef",
-  c("", "1999", "1999_1", "2020"),
-  n = 1000
+registers_tbl <- fastreg::simulate_registers_with_paths(
+  c("bef", "lmdb"),
+  c("", "1999", "1999_1", "2020", "2021"),
+  n = 1000,
+  output_dir = rawdata_dir
 )
 
-lmdb_list <- simulate_register(
-  "lmdb",
-  c("2020", "2021"),
-  n = 1000
-)
-
-save_as_sas(
-  c(bef_list, lmdb_list),
-  sas_dir
-)
+sas_paths <- registers_tbl |>
+  purrr::pwalk(fastreg::write_to_sas) |>
+  dplyr::pull(output_path)
 
 
 ## ----setup-tree---------------------------------------------------------------
 #| echo: false
-show_tree(sas_dir)
+# Show how files look relative to "E" to mimic DST
+rawdata_dir |>
+  # Get to the `E` directory.
+  fs::path_dir() |>
+  fs::path_dir() |>
+  show_tree()
 
 
 ## ----convert-file-------------------------------------------------------------
-sas_file <- fs::path(sas_dir, "bef2020.sas7bdat")
-output_file_dir <- fs::path_temp("output-file-dir")
-
-convert_file(
-  path = sas_file,
-  output_dir = output_file_dir
+fastreg::convert(
+  path = sas_paths[1],
+  output_dir = workdata_dir
 )
 
 
 ## ----output-tree-file---------------------------------------------------------
 #| echo: false
-show_tree(output_file_dir)
-
-
-## ----locate-------------------------------------------------------------------
-bef_sas_files <- list_sas_files(sas_dir) |>
-  stringr::str_subset("bef")
-bef_sas_files
-
-
-## ----convert-register---------------------------------------------------------
-output_register_dir <- fs::path_temp("output-register-dir")
-
-convert_register(
-  path = bef_sas_files,
-  output_dir = output_register_dir
-)
-
-
-## ----output-tree--------------------------------------------------------------
-#| echo: false
-show_tree(output_register_dir)
+workdata_dir |>
+  # Get to the `E` directory.
+  fs::path_dir() |>
+  fs::path_dir() |>
+  fs::path_dir() |>
+  show_tree()
 
 
 ## ----use-targets--------------------------------------------------------------
-pipeline_dir <- fs::path_temp("pipeline-dir")
+pipeline_dir <- fs::path(workdata_dir, "conversion_pipeline")
 fs::dir_create(pipeline_dir)
 
-use_targets_template(path = pipeline_dir)
+fastreg::use_template(path = pipeline_dir)
 
 
 ## ----config-------------------------------------------------------------------
 config <- list(
-  input_dir = fs::path_temp("sas-dir"),
-  output_dir = fs::path(pipeline_dir, "parquet-registers")
+  sas_paths = fastreg::list_sas_files(rawdata_dir),
+  output_dir = workdata_dir
 )
 
 
@@ -92,27 +91,39 @@ config <- list(
 # targets::tar_make()
 
 
-## ----edit-and-run-pipeline----------------------------------------------------
-#| echo: false
-#| eval: !expr rlang::is_installed("targets")
-template_content <- readLines(fs::path(pipeline_dir, "_targets.R"))
-modified_content <- template_content |>
-  stringr::str_replace("/path/to/register/sas/files/directory", config$input_dir) |>
-  stringr::str_replace("/path/to/output/directory", config$output_dir)
-
-withr::with_dir(pipeline_dir, {
-  writeLines(modified_content, "_targets.R")
-  targets::tar_make(callr_function = NULL, reporter = "silent")
-})
+## -----------------------------------------------------------------------------
+#| label: "manual-conversion"
+#| include: false
+fastreg::list_sas_files(rawdata_dir) |>
+  purrr::walk(\(path) {
+    fastreg::convert(path, workdata_dir)
+  })
 
 
-## ----output-pipeline----------------------------------------------------------
-#| eval: !expr rlang::is_installed("targets")
-#| echo: false
-show_tree(config$output_dir)
+## ----list-files---------------------------------------------------------------
+#| filename: "Console"
+# For individual files
+fastreg::list_parquet_files()
+# For datasets (registers with all years).
+fastreg::list_parquet_datasets()
 
 
-## ----read-register------------------------------------------------------------
-register <- read_register(output_register_dir)
-register
+## ----read-file----------------------------------------------------------------
+bef <- fastreg::read_register("bef")
+bef
+
+
+## ----read-partition-----------------------------------------------------------
+fastreg::list_parquet_datasets()[1] |>
+  fastreg::read_parquet_dataset()
+
+# Or a single file
+fastreg::list_parquet_files()[1] |>
+  fastreg::read_parquet_file()
+
+
+## ----filter-file--------------------------------------------------------------
+bef |>
+  dplyr::filter(koen == 2) |>
+  dplyr::compute()
 

@@ -22,6 +22,12 @@ Parquet files. A *register* in this context refers to a collection of
 related data files that belong to the same dataset, typically with
 yearly snapshots (e.g., `bef2020.sas7bdat`,`bef2021.sas7bdat`).
 
+::: callout-note
+We use package prefixes (`fastreg::`) throughout the documentation
+rather than `library()` calls, to make the package origin of each
+function explicit and avoid naming conflicts.
+:::
+
 ## Why Parquet?
 
 [Parquet](https://parquet.apache.org/) is a columnar storage file format
@@ -38,40 +44,80 @@ formats like CSV), Parquet offers:
   [Python](https://www.python.org/), and beyond, making it easy to
   integrate into modern workflows.
 
+## Settings to correct paths
+
+Many of fastreg's functions depend on the locations of the original SAS
+files and the eventual Parquet files including the conversion, writing,
+and reading functions. Through `options()` you can set these paths in
+two settings: `fastreg.project_rawdata_dir` and
+`fastreg.project_workdata_dir`. You can set these `options()` at the top
+of your R script or Quarto document, in your R Project's `.Rprofile`, or
+in your user-level `.Rprofile`. To add to the file, at the top of an R
+script, write (using a temporary directory here for these examples):
+
+```{r options}
+options(
+  # With a fake project ID and the temporary directory.
+  # Uses `E` rather than `E:` because Windows has issues with a colon in the
+  # path when using a temporary location.
+  fastreg.project_rawdata_dir = fs::path_temp("E/rawdata/701020/"),
+  fastreg.project_workdata_dir = fs::path_temp("E/workdata/701020/parquet-registers/")
+)
+```
+
+If you want to set those exact same options in the R Project's
+`.Rprofile`, run the following line in your Console to open up the
+`.Rprofile` file for the project:
+
+```{r options-project-profile}
+#| filename: "Console"
+#| eval: false
+usethis::edit_r_profile("project")
+```
+
+You can then add the same `options()` as shown in the R script example
+above to that file and save it. The next time you open the project,
+those options will be set.
+
+If you want to set these options for all of your R projects and
+sessions, you can add them globally in your user-level `.Rprofile`. To
+open the `.Rprofile`, run:
+
+```{r options-user-profile}
+#| filename: "Console"
+#| eval: false
+usethis::edit_r_profile("user")
+```
+
 ## Setup
 
 For the examples below, we've simulated SAS register data for two
 registers, `bef` and `lmdb`:
 
 ```{r prepare}
-#| code-fold: true
-#| code-summary: "Show setup code"
-library(fastreg)
+rawdata_dir <- getOption("fastreg.project_rawdata_dir")
+workdata_dir <- getOption("fastreg.project_workdata_dir")
 
-sas_dir <- fs::path_temp("sas-dir")
-fs::dir_create(sas_dir)
-
-bef_list <- simulate_register(
-  "bef",
-  c("", "1999", "1999_1", "2020"),
-  n = 1000
+registers_tbl <- fastreg::simulate_registers_with_paths(
+  c("bef", "lmdb"),
+  c("", "1999", "1999_1", "2020", "2021"),
+  n = 1000,
+  output_dir = rawdata_dir
 )
 
-lmdb_list <- simulate_register(
-  "lmdb",
-  c("2020", "2021"),
-  n = 1000
-)
-
-save_as_sas(
-  c(bef_list, lmdb_list),
-  sas_dir
-)
+sas_paths <- registers_tbl |>
+  purrr::pwalk(fastreg::write_to_sas) |>
+  dplyr::pull(output_path)
 ```
 
 ```{r setup-tree}
 #| echo: false
-show_tree(sas_dir)
+# Show how files look relative to "E" to mimic DST
+rawdata_dir |>
+  # Get to the `E` directory.
+  fs::path_dir() |>
+  fs::path_dir() |>
+  show_tree()
 ```
 
 ## Converting a single file
@@ -80,23 +126,20 @@ Converting one file from SAS to Parquet in fastreg isn't a simple change
 of file extension. We make use of Parquet's Hive partitioning to
 organise the output by year, for easier querying and management. So the
 output Parquet file is written to a subdirectory named after the year
-extracted from the file name. Use the `convert_file()` function to
-convert a single SAS file to a year-partitioned Parquet format:
+extracted from the file name. Use the `convert()` function to convert a
+single SAS file to a year-partitioned Parquet format:
 
 ```{r convert-file}
-sas_file <- fs::path(sas_dir, "bef2020.sas7bdat")
-output_file_dir <- fs::path_temp("output-file-dir")
-
-convert_file(
-  path = sas_file,
-  output_dir = output_file_dir
+fastreg::convert(
+  path = sas_paths[1],
+  output_dir = workdata_dir
 )
 ```
 
-`convert_file()` reads files in chunks (to be able to handle
+`convert()` reads files in chunks (to be able to handle
 larger-than-memory data) with a default of reading 1 million rows,
 extracts 4-digit years from filenames for partitioning, and lowercases
-column names. See `?convert_file` for more details.
+column names. See `?convert` for more details.
 
 ::: callout-note
 When a SAS file contains more rows than the `chunk_size`, multiple
@@ -112,51 +155,13 @@ by the year extracted from the file name as seen below:
 
 ```{r output-tree-file}
 #| echo: false
-show_tree(output_file_dir)
+workdata_dir |>
+  # Get to the `E` directory.
+  fs::path_dir() |>
+  fs::path_dir() |>
+  fs::path_dir() |>
+  show_tree()
 ```
-
-## Converting a register
-
-Use `list_sas_files()` to find SAS files in a directory (and any
-subdirectories), then use `convert_register()` to convert them.
-`convert_register()` expects files to be from the **same register**
-based on file names.
-
-```{r locate}
-bef_sas_files <- list_sas_files(sas_dir) |>
-  stringr::str_subset("bef")
-bef_sas_files
-```
-
-```{r convert-register}
-output_register_dir <- fs::path_temp("output-register-dir")
-
-convert_register(
-  path = bef_sas_files,
-  output_dir = output_register_dir
-)
-```
-
-`convert_register()` uses `convert_file()` internally so the same
-chunking and partitioning behaviour applies. See `?convert_file` and
-`?convert_register` for more details. As a result, the output from
-`convert_register()` is also partitioned by year, extracted from file
-names:
-
-```{r output-tree}
-#| echo: false
-show_tree(output_register_dir)
-```
-
-The output is organised into a "bef" folder (register name extracted from file names) with year-based subdirectories:
-
-- The data from the two SAS files with "1999" in their file names are
-  located in the subfolder "year=1999"
-- The data from the SAS file from 2020 are located in the subfolder
-  "year=2020"
-- One SAS file didn't have a year in its file name, `bef.sas7bdat`. The
-  data from this file is placed in the "year=**HIVE_DEFAULT_PARTITION**"
-  folder, the default for files without a year in their name.
 
 ## Converting multiple registers in parallel
 
@@ -166,14 +171,19 @@ parallelises conversion across CPU cores. By default it uses 10 workers,
 but that can be adjusted in the pipeline in the `_targets.R` file to not
 consume too many cores on a shared server.
 
-To create the pipeline file, you can use the `use_targets_template()`
-function. In this example, we're outputting it to a temporary directory.
+To create the pipeline file, you can use the `use_template()` function,
+which creates two files: a `_targets.R` pipeline and a
+`conversion-log.qmd` Quarto document. When running the pipeline, the
+conversion log is written to a PDF, named
+`conversion-log-<timestamp>.pdf`, by default.
+
+In this example, we're outputting the template to a temporary directory.
 
 ```{r use-targets}
-pipeline_dir <- fs::path_temp("pipeline-dir")
+pipeline_dir <- fs::path(workdata_dir, "conversion_pipeline")
 fs::dir_create(pipeline_dir)
 
-use_targets_template(path = pipeline_dir)
+fastreg::use_template(path = pipeline_dir)
 ```
 
 Once the `_targets.R` file is created, open it and edit the `config`
@@ -181,15 +191,14 @@ section:
 
 ```{r config}
 config <- list(
-  input_dir = fs::path_temp("sas-dir"),
-  output_dir = fs::path(pipeline_dir, "parquet-registers")
+  sas_paths = fastreg::list_sas_files(rawdata_dir),
+  output_dir = workdata_dir
 )
 ```
 
 The `input_dir` is the directory that contains the SAS files (searched
-recursively). This directory can contain different registers, rather
-than just one as is expected in `convert_register()`. The `output_dir`
-directory is where the Parquet files will be written to.
+recursively). This directory can contain different registers. The
+`output_dir` directory is where the Parquet files will be written to.
 
 After you've updated the `config` section, you can run the pipeline:
 
@@ -198,18 +207,13 @@ After you've updated the `config` section, you can run the pipeline:
 targets::tar_make()
 ```
 
-```{r edit-and-run-pipeline}
-#| echo: false
-#| eval: !expr rlang::is_installed("targets")
-template_content <- readLines(fs::path(pipeline_dir, "_targets.R"))
-modified_content <- template_content |>
-  stringr::str_replace("/path/to/register/sas/files/directory", config$input_dir) |>
-  stringr::str_replace("/path/to/output/directory", config$output_dir)
-
-withr::with_dir(pipeline_dir, {
-  writeLines(modified_content, "_targets.R")
-  targets::tar_make(callr_function = NULL, reporter = "silent")
-})
+```{r}
+#| label: "manual-conversion"
+#| include: false
+fastreg::list_sas_files(rawdata_dir) |>
+  purrr::walk(\(path) {
+    fastreg::convert(path, workdata_dir)
+  })
 ```
 
 The pipeline will find all SAS files from `input_dir` and convert each
@@ -217,26 +221,76 @@ file into a Parquet file, all done in parallel. Re-running `tar_make()`
 only re-converts registers whose source files have changed or if the
 pipeline itself has been edited.
 
-Below, you can see the output of running the pipeline with the example
-data:
+## Listing available Parquet files and datasets
 
-```{r output-pipeline}
-#| eval: !expr rlang::is_installed("targets")
-#| echo: false
-show_tree(config$output_dir)
+To list what Parquet files or datasets are available, use the
+`list_parquet_files()` and `list_parquet_datasets()` functions. These
+look in the `fastreg.project_workdata_dir` and
+`fastreg.project_rawdata_dir` directories (set with `options()`) for any
+Parquet files following a specific pattern.
+
+You can use them interactively in the Console (which are shown in the
+temporary directory when rendered on the website):
+
+```{r list-files}
+#| filename: "Console"
+# For individual files
+fastreg::list_parquet_files()
+# For datasets (registers with all years).
+fastreg::list_parquet_datasets()
 ```
 
 ## Reading a Parquet register
 
-The final function reads the converted Parquet register data into R.
-This function reads the data into a [DuckDB](https://duckdb.org/) table,
-which a powerful way to query and process large data.
+The final function reads the converted Parquet register data into R,
+returning a [DuckDB](https://duckdb.org/) table. Using a DuckDB table is
+a powerful way to query and process large data without loading it all
+into memory.
 
-```{r read-register}
-register <- read_register(output_register_dir)
-register
+A quick way of reading a register is with the `read_register()`
+function. This function looks for a given name of a register in either
+the `fastreg.project_workdata_dir` or `fastreg.project_rawdata_dir`
+directories (set with `options()`) and reads it as a DuckDB table. You
+can also use the more specific `read_parquet_dataset()` or
+`read_parquet_file()` functions to read from a specific directory or
+file path.
+
+```{r read-file}
+bef <- fastreg::read_register("bef")
+bef
 ```
 
-You can pass a directory to read the full partitioned register or a file
-path to read a single `.parquet` file. The data is read lazily, so it
-won't load into memory until collected with e.g. `dplyr::collect()`.
+Or directly with `read_parquet_dataset()` or `read_parquet_file()`:
+
+```{r read-partition}
+fastreg::list_parquet_datasets()[1] |>
+  fastreg::read_parquet_dataset()
+
+# Or a single file
+fastreg::list_parquet_files()[1] |>
+  fastreg::read_parquet_file()
+```
+
+The resulting DuckDB table can be filtered and transformed with `dplyr`.
+For example, you can filter the data:
+
+```{r filter-file}
+bef |>
+  dplyr::filter(koen == 2) |>
+  dplyr::compute()
+```
+
+After the query (filer and mutate), we execute it with
+`dplyr::compute()`. This save the result as a temporary table inside
+DuckDB, without loading it into R memory.
+
+Notice the `??` in the first line of the output. This shows us that the
+total number of matching rows is not yet known because the data isn't
+loaded into memory.
+
+::: callout-note
+If you need to load the data into memory in R, you can use
+`dplyr::collect()`. However, for large registers this can take a long
+time, so only do this when it's absolutely necessary and make sure to
+filter the data before collecting.
+:::

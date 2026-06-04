@@ -4,6 +4,8 @@
 
 <!-- badges: start -->
 
+[![CRAN
+status](https://www.r-pkg.org/badges/version/fastreg)](https://CRAN.R-project.org/package=fastreg)
 [![GitHub
 Release](https://img.shields.io/github/v/release/dp-next/fastreg.svg)](https://github.com/dp-next/fastreg/releases/latest)
 [![Build](https://github.com/dp-next/fastreg/actions/workflows/build.yml/badge.svg)](https://github.com/dp-next/fastreg/actions/workflows/build.yml)
@@ -65,41 +67,29 @@ pak::pak("dp-next/fastreg")
 
 ## Usage
 
-Use `convert_file()` to convert a single SAS file to Parquet in Hive
+Use `convert()` to convert a single SAS file to Parquet in Hive
 partition format:
 
 ``` r
-library(fastreg)
-
-convert_file(
+fastreg::convert(
   path = "path/to/file.sas7bdat",
   output_dir = "path/to/output_dir/"
 )
 ```
 
-Use `convert_register()` to convert several SAS files from the same
-register into a Hive partitioned Parquet dataset. To list all SAS files
-in a directory, you can use the helper function `list_sas_files()`:
-
-``` r
-convert_register(
-  path = list_sas_files("path/to/sas_register/"),
-  output_dir = "path/to/output_dir/"
-)
-```
-
-Use `use_targets_template()` to copy a
+Use `use_template()` to copy a
 [targets](https://books.ropensci.org/targets/) template that converts
 multiple registers in parallel into your project:
 
 ``` r
-use_targets_template()
+fastreg::use_template()
 ```
 
-Use `read_register()` to read a Parquet register as a DuckDB table:
+Use `read_register()` to quickly read a specific register (e.g. the BEF
+register) as a DuckDB table:
 
 ``` r
-read_register("path/to/parquet_register/")
+fastreg::read_register("bef")
 ```
 
 See `vignette("fastreg")` for a complete guide.

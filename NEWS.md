@@ -16,6 +16,125 @@ individual release will not have many changes within it. Below is a list
 of the releases we've made so far, along with what was changed within
 each release.
 
+## 0.13.0 (2026-06-04)
+
+### Feat
+
+- ✨ conversion log schema comparison (#301)
+
+## 0.12.6 (2026-06-04)
+
+### Fix
+
+- :bug: change `skip` to `double` to avoid integer overflow with very
+  large files (#309)
+
+## 0.12.5 (2026-06-02)
+
+### Refactor
+
+- ♻️ `read_register()` takes a register name as argument, not path
+  (#299)
+
+## 0.12.4 (2026-06-02)
+
+### Refactor
+
+- :recycle: make `if else` stricter with `if_else()` (#308)
+
+## 0.12.3 (2026-06-02)
+
+### Refactor
+
+- ♻️ `log_as_table()` to `print_log_row_count()` (#306)
+
+## 0.12.2 (2026-06-02)
+
+### Refactor
+
+- :recycle: simplify simulation and saving to SAS functions (#295)
+
+## 0.12.1 (2026-05-28)
+
+### Refactor
+
+- 🚚 rename log "columns" to "schema" (#300)
+
+## 0.12.0 (2026-05-27)
+
+### Feat
+
+- ✨ add minimal conversion log with chunk information (#290)
+
+## 0.11.1 (2026-04-30)
+
+### Refactor
+
+- :truck: rename `chunk_info$columns` cols to be more descriptive (#289)
+
+## 0.11.0 (2026-04-29)
+
+### Feat
+
+- :sparkles: `list_parquet_files()` and `list_parquet_datasets()`
+  helpers (#272)
+
+## 0.10.3 (2026-04-27)
+
+### Refactor
+
+- ♻️ change `convert()` to output `chunk_info` tibble (#286)
+
+## 0.10.2 (2026-04-24)
+
+### Refactor
+
+- :truck: rename `use-targets-template()` to `use-template()` (#284)
+
+## 0.10.1 (2026-04-24)
+
+### Refactor
+
+- :truck: rename `convert_file()` -> `convert()` (#281)
+
+## 0.10.0 (2026-04-23)
+
+### Feat
+
+- :sparkles: helper `get_*()` for project IDs and directories (#251)
+
+## 0.9.1 (2026-04-22)
+
+### Refactor
+
+- 🔥 remove `convert_register()` (#275)
+
+## 0.9.0 (2026-04-20)
+
+### Feat
+
+- :sparkles: export originally private `read_parquet_*()` functions
+  (#259)
+
+## 0.8.20 (2026-03-06)
+
+### Refactor
+
+- ♻️ use sas paths as input in targets template (#244)
+
+## 0.8.19 (2026-03-04)
+
+### Fix
+
+- :bug: add `gc()` to `convert_register()` (#240)
+
+## 0.8.18 (2026-02-27)
+
+### Fix
+
+- :bug: set `sas_path` target to `mode = "always"` to detect new SAS
+  files in `input_dir` (#233)
+
 ## 0.8.17 (2026-02-19)
 
 ### Fix
