@@ -15,14 +15,16 @@ For each register, this log includes two sections:
    schema is shown alongside the differences.
 
 If you experience any problems or bugs with `fastreg`, please add an
-[issue on GitHub](https://github.com/dp-next/fastreg/issues/new).
+issue on GitHub by following this link:
+<https://github.com/dp-next/fastreg/issues/new>.
 
 ```{r}
 #| echo: false
 #| message: false
 #| results: asis
+library(targets)
 
-conversion_log <- targets::tar_read(conversion_log)
+conversion_log <- tar_read(conversion_log)
 
 for (register in unique(conversion_log$register_name)) {
   register_log <- conversion_log |>

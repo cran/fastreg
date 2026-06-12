@@ -15,11 +15,15 @@
 #' print_log_row_count(conversion_log)
 print_log_row_count <- function(log) {
   log |>
-    dplyr::mutate(
-      dplyr::across(c("input_path", "output_path"), fs::path_rel)
-    ) |>
+    dplyr::mutate(dplyr::across(c("input_path", "output_path"), \(path) {
+      fs::path_rel(path) |>
+        fs::path_ext_remove() |>
+        stringr::str_trunc(width = 50, side = "left")
+    })) |>
     dplyr::select("input_path", "output_path", "row_count") |>
-    knitr::kable() |>
+    knitr::kable(
+      col.names = c("Input (.sas7bdat)", "Output (.parquet)", "Row count")
+    ) |>
     print()
 
   invisible(log)
@@ -75,6 +79,9 @@ print_log_schema <- function(register_log) {
       "",
       get_schema_diffs(file_schemas, reference_schema) |>
         chunk_diff_table() |>
+        purrr::map(\(chunk) {
+          dplyr::rename(chunk, "Column name" = "column_name")
+        }) |>
         purrr::map_chr(collapse_kable)
     )
   }
@@ -83,7 +90,9 @@ print_log_schema <- function(register_log) {
     # Description.
     description,
     # Reference schema.
-    collapse_kable(reference_schema),
+    reference_schema |>
+      dplyr::rename("Column name" = "column_name", "Data type" = "data_type") |>
+      collapse_kable(),
     # Schema differences.
     schema_differences
   )

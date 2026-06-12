@@ -1,6 +1,6 @@
 Package: fastreg
 Title: Fast Conversion and Querying of Danish Registers with 'Parquet'
-Version: 0.13.0
+Version: 0.13.8
 Authors@R: c(
     person("Signe Kirk", "Brødbæk", , "signekb@clin.au.dk", role = c("aut", "cre"),
            comment = c(ORCID = "0009-0000-2208-7088")),
@@ -29,7 +29,7 @@ Language: en-US
 Config/testthat/edition: 3
 Config/roxygen2/version: 8.0.0
 NeedsCompilation: no
-Packaged: 2026-06-04 11:30:31 UTC; au546191
+Packaged: 2026-06-12 13:44:36 UTC; au546191
 Author: Signe Kirk Brødbæk [aut, cre] (ORCID:
     <https://orcid.org/0009-0000-2208-7088>),
   Luke Johnston [aut] (ORCID: <https://orcid.org/0000-0003-4169-2616>),
@@ -37,4 +37,4 @@ Author: Signe Kirk Brødbæk [aut, cre] (ORCID:
   Aarhus University [cph]
 Maintainer: Signe Kirk Brødbæk <signekb@clin.au.dk>
 Repository: CRAN
-Date/Publication: 2026-06-04 11:50:23 UTC
+Date/Publication: 2026-06-12 14:10:02 UTC

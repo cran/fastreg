@@ -158,3 +158,43 @@ test_that("convert() handles very large files without integer overflow", {
 
   expect_equal(sum(result$row_count), total_rows)
 })
+
+test_that("convert()'s conversion log handles data types with class vectors of length > 1", {
+  df <- simulate_registers_with_paths("bef", n = 1000)
+
+  # Change `foed_dato` to POSIXct (so class vector has len > 1, "POSIXct" *and* "POSIXt")
+  df$data[[1]] <- df$data[[1]] |>
+    dplyr::mutate(foed_dato = as.POSIXct(foed_dato))
+
+  sas_path <- df |>
+    purrr::pwalk(write_to_sas)
+
+  result <- expect_no_error(convert(
+    path = sas_path$output_path,
+    output_dir = fs::path_temp("class-vector")
+  ))
+
+  foed_dato_type <- result$schema[[1]] |>
+    dplyr::filter(column_name == "foed_dato") |>
+    dplyr::pull(data_type) |>
+    unname()
+
+  expect_equal(foed_dato_type, "POSIXct")
+})
+
+test_that("convert() only keep lowercased letters and underscores in register names", {
+  df <- simulate_registers_with_paths("bef", n = 10)
+  df$output_path <- df$output_path |>
+    fs::path_dir() |>
+    fs::path("r€EGI-s$ ter_NAME.sas7bdat")
+
+  sas_path <- df |>
+    purrr::pwalk(write_to_sas)
+
+  result <- expect_no_error(convert(
+    path = sas_path$output_path,
+    output_dir = fs::path_temp("register-name")
+  ))
+
+  expect_equal(result$register_name, "register_name")
+})

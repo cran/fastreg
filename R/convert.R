@@ -65,12 +65,24 @@ convert <- function(
         row_count = nrow(chunk),
         schema = list(tibble::tibble(
           column_name = colnames(chunk),
-          data_type = purrr::map_chr(chunk, class)
+          # Choose first class in case there's multiple (e.g., POSIXct and POSIXt).
+          data_type = purrr::map_chr(chunk, \(x) class(x)[1])
         ))
       )
     )
 
+    skip_before <- skip
     skip <- skip + nrow(chunk)
+
+    if (is.na(skip)) {
+      cli::cli_warn(c(
+        "The conversion ended early because of an issue with {.path {path}}.",
+        "i" = "{skip_before} rows of this file were converted before the issue occurred.",
+        "i" = "If the issue persists, please file a bug report here: {.url https://github.com/dp-next/fastreg}."
+      ))
+      break
+    }
+
     part <- create_part_uuid()
 
     chunk <- read_sas_chunk(path, skip, chunk_size)
@@ -80,7 +92,6 @@ convert <- function(
 
   conversion_log
 }
-
 #' Read SAS chunk
 #'
 #' @param skip Number of rows to skip.
@@ -220,8 +231,9 @@ get_register_names <- function(path) {
   path |>
     fs::path_file() |>
     fs::path_ext_remove() |>
-    # Remove everything that's not a letter.
-    stringr::str_remove_all("[^[:alpha:]]")
+    # Remove everything that's not a letter except underscores.
+    stringr::str_remove_all("[^[:alpha:]_]") |>
+    stringr::str_to_lower()
 }
 
 #' Get register name from a group of file paths

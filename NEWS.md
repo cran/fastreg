@@ -16,6 +16,56 @@ individual release will not have many changes within it. Below is a list
 of the releases we've made so far, along with what was changed within
 each release.
 
+## 0.13.8 (2026-06-12)
+
+### Refactor
+
+- ♻️ abort `convert()` if `skip` becomes `NA` (#325)
+
+## 0.13.7 (2026-06-12)
+
+### Refactor
+
+- :recycle: don't open targets pipeline in Rstudio (#322)
+
+## 0.13.6 (2026-06-11)
+
+### Refactor
+
+- ♻️ use raw link to new fastreg issue in conversion log qmd (#324)
+- 💄 prettify log table column names (#321)
+
+## 0.13.5 (2026-06-11)
+
+### Fix
+
+- 🐛 import `targets` in log qmd to set explicit dependency (#320)
+
+## 0.13.4 (2026-06-10)
+
+### Refactor
+
+- ♻️ truncate input and output paths in `print_log_row_count()` (#318)
+
+## 0.13.3 (2026-06-10)
+
+### Fix
+
+- 🐛 lowercase register names and keep underscores (#316)
+
+## 0.13.2 (2026-06-09)
+
+### Fix
+
+- :bug: import `list_sas_files()` from `fastreg` in template (#315)
+
+## 0.13.1 (2026-06-09)
+
+### Fix
+
+- 🐛 handle data types with class vectors of length > 1 in `convert()`
+  (#314)
+
 ## 0.13.0 (2026-06-04)
 
 ### Feat
