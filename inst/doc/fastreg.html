@@ -225,8 +225,8 @@ text-decoration: underline; }
 <li><strong>Faster queries</strong>: The columnar layout speeds up analytical queries that only need a subset of columns.</li>
 <li><strong>Wide tool support</strong>: Parquet is supported across data processing frameworks in <a href="https://www.r-project.org/">R</a>, <a href="https://www.python.org/">Python</a>, and beyond, making it easy to integrate into modern workflows.</li>
 </ul>
-<h2 id="settings-to-correct-paths">Settings to correct paths</h2>
-<p>Many of fastreg’s functions depend on the locations of the original SAS files and the eventual Parquet files including the conversion, writing, and reading functions. Through <code>options()</code> you can set these paths in two settings: <code>fastreg.project_rawdata_dir</code> and <code>fastreg.project_workdata_dir</code>. You can set these <code>options()</code> at the top of your R script or Quarto document, in your R Project’s <code>.Rprofile</code>, or in your user-level <code>.Rprofile</code>. To add to the file, at the top of an R script, write (using a temporary directory here for these examples):</p>
+<h2 id="configuring-paths">Configuring paths</h2>
+<p>Many of fastreg’s functions depend on the locations of the original SAS files and the eventual Parquet files, including the conversion, writing, and reading functions. You can configure these paths via two options: <code>fastreg.project_rawdata_dir</code> and <code>fastreg.project_workdata_dir</code>. You can set these <code>options()</code> at the top of your R script or Quarto document, in your R Project’s <code>.Rprofile</code>, or in your user-level <code>.Rprofile</code>. To add to the file, at the top of an R script, write (using a temporary directory here for these examples):</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">options</span>(</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="co"># With a fake project ID and the temporary directory.</span></span>
@@ -298,13 +298,19 @@ text-decoration: underline; }
 <span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; # A tibble: 1 × 5</span></span>
 <span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   register_name input_path                        output_path row_count schema  </span></span>
 <span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   &lt;chr&gt;         &lt;fs::path&gt;                        &lt;fs::path&gt;      &lt;int&gt; &lt;list&gt;  </span></span>
-<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1 bef           …DG/E/rawdata/701020/bef.sas7bdat …c0.parquet      1000 &lt;tibble&gt;</span></span></code></pre></div>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1 bef           …fz/E/rawdata/701020/bef.sas7bdat …be.parquet      1000 &lt;tibble&gt;</span></span></code></pre></div>
 </div>
 <p><code>convert()</code> reads files in chunks (to be able to handle larger-than-memory data) with a default of reading 1 million rows, extracts 4-digit years from filenames for partitioning, and lowercases column names. See <code>?convert</code> for more details.</p>
 <div>
 <blockquote>
 <p><strong>Note</strong></p>
-<p>When a SAS file contains more rows than the <code>chunk_size</code>, multiple Parquet files will be created from it. This doesn’t affect how the data is loaded with <code>read_register()</code> (see <a href="#reading-a-parquet-register">Reading a Parquet register</a> below), it only means you may see more Parquet files in the output than input SAS files.</p>
+<p>When a SAS file contains more rows than the <code>chunk_size</code>, multiple Parquet files will be created from it. This doesn’t affect how the data is loaded with <code>read_register()</code> (see <a href="#reading-a-parquet-register">Reading a Parquet register</a> below), you may see multiple Parquet files per source SAS file.</p>
+</blockquote>
+</div>
+<div>
+<blockquote>
+<p><strong>Warning</strong></p>
+<p>If you’re handling very large SAS files, please refer to the <a href="#sec-large-sas-files">When SAS files become too big</a> section below.</p>
 </blockquote>
 </div>
 <p>Even though this only converts a single file, the output is partitioned by the year extracted from the file name as seen below:</p>
@@ -327,7 +333,7 @@ text-decoration: underline; }
 #&gt;         └── parquet-registers
 #&gt;             └── bef
 #&gt;                 └── year=__HIVE_DEFAULT_PARTITION__
-#&gt;                     └── part-a9adc0.parquet</code></pre>
+#&gt;                     └── part-7514be.parquet</code></pre>
 </div>
 <h2 id="converting-multiple-registers-in-parallel">Converting multiple registers in parallel</h2>
 <p>For many or large files, fastreg provides a <a href="https://docs.ropensci.org/targets/">targets</a> pipeline template that parallelises conversion across CPU cores. By default it uses 10 workers, but that can be adjusted in the pipeline in the <code>_targets.R</code> file to not consume too many cores on a shared server.</p>
@@ -338,8 +344,8 @@ text-decoration: underline; }
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>fs<span class="sc">::</span><span class="fu">dir_create</span>(pipeline_dir)</span>
 <span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>fastreg<span class="sc">::</span><span class="fu">use_template</span>(<span class="at">path =</span> pipeline_dir)</span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; ✔ Created &#39;/var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46/T/RtmpEZTGDG/E/workdata/701020/parquet-registers/conversion_pipeline/_targets.R&#39;</span></span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; ✔ Created &#39;/var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46/T/RtmpEZTGDG/E/workdata/701020/parquet-registers/conversion_pipeline/_targets.R&#39;</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; ✔ Created &#39;/var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46/T/Rtmpf6E3fz/E/workdata/701020/parquet-registers/conversion_pipeline/_targets.R&#39;</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; ✔ Created &#39;/var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46/T/Rtmpf6E3fz/E/workdata/701020/parquet-registers/conversion_pipeline/_targets.R&#39;</span></span>
 <span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; ℹ Edit the `config` section to set your paths.</span></span></code></pre></div>
 </div>
 <p>Once the <code>_targets.R</code> file is created, open it and edit the <code>config</code> section:</p>
@@ -349,12 +355,18 @@ text-decoration: underline; }
 <span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">output_dir =</span> workdata_dir</span>
 <span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div>
 </div>
-<p>The <code>input_dir</code> is the directory that contains the SAS files (searched recursively). This directory can contain different registers. The <code>output_dir</code> directory is where the Parquet files will be written to.</p>
+<p>The <code>sas_paths</code> is a vector of paths to the SAS files to convert, found recursively via <code>list_sas_files()</code>. This can span different registers. The <code>output_dir</code> is where the Parquet files will be written.</p>
 <p>After you’ve updated the <code>config</code> section, you can run the pipeline:</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>targets<span class="sc">::</span><span class="fu">tar_make</span>()</span></code></pre></div>
 </div>
 <p>The pipeline will find all SAS files from <code>input_dir</code> and convert each file into a Parquet file, all done in parallel. Re-running <code>tar_make()</code> only re-converts registers whose source files have changed or if the pipeline itself has been edited.</p>
+<div>
+<blockquote>
+<p><strong>Warning</strong></p>
+<p>If you’re handling very large SAS files, please refer to the <a href="#sec-large-sas-files">When SAS files become too big</a> section below.</p>
+</blockquote>
+</div>
 <h2 id="listing-available-parquet-files-and-datasets">Listing available Parquet files and datasets</h2>
 <p>To list what Parquet files or datasets are available, use the <code>list_parquet_files()</code> and <code>list_parquet_datasets()</code> functions. These look in the <code>fastreg.project_workdata_dir</code> and <code>fastreg.project_rawdata_dir</code> directories (set with <code>options()</code>) for any Parquet files following a specific pattern.</p>
 <p>You can use them interactively in the Console (which are shown in the temporary directory when rendered on the website):</p>
@@ -365,23 +377,23 @@ text-decoration: underline; }
 </div>
 <div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co"># For individual files</span></span>
 <span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>fastreg<span class="sc">::</span><span class="fu">list_parquet_files</span>()</span>
-<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46/T/RtmpEZTGDG/E/workdata/701020/parquet-registers/bef/year=1999/part-47858e.parquet</span></span>
-<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46/T/RtmpEZTGDG/E/workdata/701020/parquet-registers/bef/year=2020/part-29b2e2.parquet</span></span>
-<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46/T/RtmpEZTGDG/E/workdata/701020/parquet-registers/bef/year=2021/part-b2d7a6.parquet</span></span>
-<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46/T/RtmpEZTGDG/E/workdata/701020/parquet-registers/bef/year=__HIVE_DEFAULT_PARTITION__/part-a9adc0.parquet</span></span>
-<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46/T/RtmpEZTGDG/E/workdata/701020/parquet-registers/bef/year=__HIVE_DEFAULT_PARTITION__/part-fd9bb5.parquet</span></span>
-<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46/T/RtmpEZTGDG/E/workdata/701020/parquet-registers/bef_/year=1999/part-e7ac1c.parquet</span></span>
-<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46/T/RtmpEZTGDG/E/workdata/701020/parquet-registers/lmdb/year=1999/part-17fe9e.parquet</span></span>
-<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46/T/RtmpEZTGDG/E/workdata/701020/parquet-registers/lmdb/year=2020/part-bbab74.parquet</span></span>
-<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46/T/RtmpEZTGDG/E/workdata/701020/parquet-registers/lmdb/year=2021/part-750b73.parquet</span></span>
-<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46/T/RtmpEZTGDG/E/workdata/701020/parquet-registers/lmdb/year=__HIVE_DEFAULT_PARTITION__/part-4281c5.parquet</span></span>
-<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46/T/RtmpEZTGDG/E/workdata/701020/parquet-registers/lmdb_/year=1999/part-ba505c.parquet</span></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46/T/Rtmpf6E3fz/E/workdata/701020/parquet-registers/bef/year=1999/part-9c8b17.parquet</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46/T/Rtmpf6E3fz/E/workdata/701020/parquet-registers/bef/year=2020/part-01cc9c.parquet</span></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46/T/Rtmpf6E3fz/E/workdata/701020/parquet-registers/bef/year=2021/part-d40425.parquet</span></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46/T/Rtmpf6E3fz/E/workdata/701020/parquet-registers/bef/year=__HIVE_DEFAULT_PARTITION__/part-56c17e.parquet</span></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46/T/Rtmpf6E3fz/E/workdata/701020/parquet-registers/bef/year=__HIVE_DEFAULT_PARTITION__/part-7514be.parquet</span></span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46/T/Rtmpf6E3fz/E/workdata/701020/parquet-registers/bef_/year=1999/part-2667de.parquet</span></span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46/T/Rtmpf6E3fz/E/workdata/701020/parquet-registers/lmdb/year=1999/part-3a0dbf.parquet</span></span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46/T/Rtmpf6E3fz/E/workdata/701020/parquet-registers/lmdb/year=2020/part-9d7c93.parquet</span></span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46/T/Rtmpf6E3fz/E/workdata/701020/parquet-registers/lmdb/year=2021/part-bc48e1.parquet</span></span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46/T/Rtmpf6E3fz/E/workdata/701020/parquet-registers/lmdb/year=__HIVE_DEFAULT_PARTITION__/part-3e232a.parquet</span></span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46/T/Rtmpf6E3fz/E/workdata/701020/parquet-registers/lmdb_/year=1999/part-52373c.parquet</span></span>
 <span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a><span class="co"># For datasets (registers with all years).</span></span>
 <span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a>fastreg<span class="sc">::</span><span class="fu">list_parquet_datasets</span>()</span>
-<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46/T/RtmpEZTGDG/E/workdata/701020/parquet-registers/bef</span></span>
-<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46/T/RtmpEZTGDG/E/workdata/701020/parquet-registers/bef_</span></span>
-<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46/T/RtmpEZTGDG/E/workdata/701020/parquet-registers/lmdb</span></span>
-<span id="cb11-19"><a href="#cb11-19" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46/T/RtmpEZTGDG/E/workdata/701020/parquet-registers/lmdb_</span></span></code></pre></div>
+<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46/T/Rtmpf6E3fz/E/workdata/701020/parquet-registers/bef</span></span>
+<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46/T/Rtmpf6E3fz/E/workdata/701020/parquet-registers/bef_</span></span>
+<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46/T/Rtmpf6E3fz/E/workdata/701020/parquet-registers/lmdb</span></span>
+<span id="cb11-19"><a href="#cb11-19" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46/T/Rtmpf6E3fz/E/workdata/701020/parquet-registers/lmdb_</span></span></code></pre></div>
 </div>
 </div>
 <h2 id="reading-a-parquet-register">Reading a Parquet register</h2>
@@ -394,16 +406,16 @@ text-decoration: underline; }
 <span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; # Database: DuckDB 1.5.2 [root@Darwin 25.5.0:R 4.5.2/:memory:]</span></span>
 <span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;     koen pnr          foed_dato  source_file                                year</span></span>
 <span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;    &lt;dbl&gt; &lt;chr&gt;        &lt;date&gt;     &lt;chr&gt;                                     &lt;int&gt;</span></span>
-<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  1     2 108684730664 1932-01-12 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
-<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  2     2 982144017357 2007-07-16 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
-<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  3     1 672580814975 1980-08-05 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  1     1 108684730664 1932-01-12 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  2     1 982144017357 2007-07-16 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  3     2 672580814975 1980-08-05 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
 <span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  4     2 439008110445 2009-06-28 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
-<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  5     2 489714666740 2017-02-25 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  5     1 489714666740 2017-02-25 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
 <span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  6     2 155331797020 1973-03-30 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
-<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  7     1 777951655096 1934-10-22 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  7     2 777951655096 1934-10-22 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
 <span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  8     2 167007504860 2001-03-18 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
 <span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  9     1 132473802596 1953-09-01 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
-<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 10     1 876820784981 1931-08-17 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 10     2 876820784981 1931-08-17 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
 <span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; # ℹ more rows</span></span></code></pre></div>
 </div>
 <p>Or directly with <code>read_parquet_dataset()</code> or <code>read_parquet_file()</code>:</p>
@@ -414,16 +426,16 @@ text-decoration: underline; }
 <span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; # Database: DuckDB 1.5.2 [root@Darwin 25.5.0:R 4.5.2/:memory:]</span></span>
 <span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;     koen pnr          foed_dato  source_file                                year</span></span>
 <span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;    &lt;dbl&gt; &lt;chr&gt;        &lt;date&gt;     &lt;chr&gt;                                     &lt;int&gt;</span></span>
-<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  1     2 108684730664 1932-01-12 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
-<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  2     2 982144017357 2007-07-16 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
-<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  3     1 672580814975 1980-08-05 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  1     1 108684730664 1932-01-12 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  2     1 982144017357 2007-07-16 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  3     2 672580814975 1980-08-05 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
 <span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  4     2 439008110445 2009-06-28 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
-<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  5     2 489714666740 2017-02-25 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  5     1 489714666740 2017-02-25 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
 <span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  6     2 155331797020 1973-03-30 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
-<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  7     1 777951655096 1934-10-22 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  7     2 777951655096 1934-10-22 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
 <span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  8     2 167007504860 2001-03-18 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
 <span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  9     1 132473802596 1953-09-01 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
-<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 10     1 876820784981 1931-08-17 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
+<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 10     2 876820784981 1931-08-17 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
 <span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; # ℹ more rows</span></span>
 <span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb13-19"><a href="#cb13-19" aria-hidden="true" tabindex="-1"></a><span class="co"># Or a single file</span></span>
@@ -433,16 +445,16 @@ text-decoration: underline; }
 <span id="cb13-23"><a href="#cb13-23" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; # Database: DuckDB 1.5.2 [root@Darwin 25.5.0:R 4.5.2/:memory:]</span></span>
 <span id="cb13-24"><a href="#cb13-24" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;     koen pnr          foed_dato  source_file                                    </span></span>
 <span id="cb13-25"><a href="#cb13-25" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;    &lt;dbl&gt; &lt;chr&gt;        &lt;date&gt;     &lt;chr&gt;                                          </span></span>
-<span id="cb13-26"><a href="#cb13-26" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  1     2 108684730664 1932-01-12 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46…</span></span>
-<span id="cb13-27"><a href="#cb13-27" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  2     2 982144017357 2007-07-16 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46…</span></span>
-<span id="cb13-28"><a href="#cb13-28" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  3     1 672580814975 1980-08-05 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46…</span></span>
+<span id="cb13-26"><a href="#cb13-26" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  1     1 108684730664 1932-01-12 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46…</span></span>
+<span id="cb13-27"><a href="#cb13-27" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  2     1 982144017357 2007-07-16 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46…</span></span>
+<span id="cb13-28"><a href="#cb13-28" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  3     2 672580814975 1980-08-05 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46…</span></span>
 <span id="cb13-29"><a href="#cb13-29" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  4     2 439008110445 2009-06-28 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46…</span></span>
-<span id="cb13-30"><a href="#cb13-30" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  5     2 489714666740 2017-02-25 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46…</span></span>
+<span id="cb13-30"><a href="#cb13-30" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  5     1 489714666740 2017-02-25 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46…</span></span>
 <span id="cb13-31"><a href="#cb13-31" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  6     2 155331797020 1973-03-30 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46…</span></span>
-<span id="cb13-32"><a href="#cb13-32" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  7     1 777951655096 1934-10-22 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46…</span></span>
+<span id="cb13-32"><a href="#cb13-32" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  7     2 777951655096 1934-10-22 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46…</span></span>
 <span id="cb13-33"><a href="#cb13-33" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  8     2 167007504860 2001-03-18 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46…</span></span>
 <span id="cb13-34"><a href="#cb13-34" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  9     1 132473802596 1953-09-01 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46…</span></span>
-<span id="cb13-35"><a href="#cb13-35" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 10     1 876820784981 1931-08-17 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46…</span></span>
+<span id="cb13-35"><a href="#cb13-35" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 10     2 876820784981 1931-08-17 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd002pbj46…</span></span>
 <span id="cb13-36"><a href="#cb13-36" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; # ℹ more rows</span></span></code></pre></div>
 </div>
 <p>The resulting DuckDB table can be filtered and transformed with <code>dplyr</code>. For example, you can filter the data:</p>
@@ -454,19 +466,19 @@ text-decoration: underline; }
 <span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; # Database: DuckDB 1.5.2 [root@Darwin 25.5.0:R 4.5.2/:memory:]</span></span>
 <span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;     koen pnr          foed_dato  source_file                                year</span></span>
 <span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;    &lt;dbl&gt; &lt;chr&gt;        &lt;date&gt;     &lt;chr&gt;                                     &lt;int&gt;</span></span>
-<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  1     2 108684730664 1932-01-12 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
-<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  2     2 982144017357 2007-07-16 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
-<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  3     2 439008110445 2009-06-28 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
-<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  4     2 489714666740 2017-02-25 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
-<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  5     2 155331797020 1973-03-30 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
-<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  6     2 167007504860 2001-03-18 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
-<span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  7     2 527918979807 1954-06-05 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
-<span id="cb14-15"><a href="#cb14-15" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  8     2 983125164454 1901-10-09 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
-<span id="cb14-16"><a href="#cb14-16" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  9     2 618090662466 1943-03-09 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
-<span id="cb14-17"><a href="#cb14-17" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 10     2 398008617406 2006-11-18 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  1     2 672580814975 1980-08-05 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  2     2 439008110445 2009-06-28 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  3     2 155331797020 1973-03-30 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  4     2 777951655096 1934-10-22 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  5     2 167007504860 2001-03-18 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  6     2 876820784981 1931-08-17 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
+<span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  7     2 983125164454 1901-10-09 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
+<span id="cb14-15"><a href="#cb14-15" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  8     2 702393367207 1960-06-05 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
+<span id="cb14-16"><a href="#cb14-16" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  9     2 398008617406 2006-11-18 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
+<span id="cb14-17"><a href="#cb14-17" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 10     2 829139228682 1976-04-20 /var/folders/2p/ftdk_rhj2vg67ppvydv_yd00…  1999</span></span>
 <span id="cb14-18"><a href="#cb14-18" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; # ℹ more rows</span></span></code></pre></div>
 </div>
-<p>After the query (filer and mutate), we execute it with <code>dplyr::compute()</code>. This save the result as a temporary table inside DuckDB, without loading it into R memory.</p>
+<p>After the query, we execute it with <code>dplyr::compute()</code>. This saves the result as a temporary table inside DuckDB, without loading it into R memory.</p>
 <p>Notice the <code>??</code> in the first line of the output. This shows us that the total number of matching rows is not yet known because the data isn’t loaded into memory.</p>
 <div>
 <blockquote>
@@ -474,6 +486,26 @@ text-decoration: underline; }
 <p>If you need to load the data into memory in R, you can use <code>dplyr::collect()</code>. However, for large registers this can take a long time, so only do this when it’s absolutely necessary and make sure to filter the data before collecting.</p>
 </blockquote>
 </div>
+<h2 id="sec-large-sas-files">When SAS files become too big (&gt; 2,147,483,647 rows)</h2>
+<p>When developing this package, we encountered an issue on Windows where <a href="https://haven.tidyverse.org/reference/read_sas.html"><code>haven::read_sas()</code></a> fails when the <code>skip</code> parameter is set to more than 2,147,483,647 (the 32-bit integer limit, 2^31 − 1). Instead of reading the expected rows, the function reads the first part of the SAS file again.</p>
+<p>fastreg currently handles this by stopping the conversion after 2,147,483,647 rows and returning a warning. This means that <strong>fastreg does not convert the rest of the data in that file</strong>.</p>
+<p>You can get around this by handling the original SAS file in two ways:</p>
+<ol type="1">
+<li><p>Split the large SAS file into two. Name them something like <code>&lt;register_name&gt;01.sas7bdat</code>,<code>&lt;register_name&gt;02.sas7bdat</code>, etc. (avoid extra <code>_</code> as they are kept as a part of the name of the partitioned Parquet register). If you use the <code>_targets.R</code> pipeline, add the paths of these files in the <code>sas_paths</code> (see section on converting multiple registers in parallel above).</p></li>
+<li><p>Convert the large SAS file to another format, e.g., <code>.csv</code>, and convert it separately, as shown in the code block below. You can either keep this as a separate script or add it to your targets pipeline.</p></li>
+</ol>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>large_csv_path <span class="ot">&lt;-</span> fs<span class="sc">::</span><span class="fu">path</span>(<span class="st">&quot;path/to/large_register2020.csv&quot;</span>)</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>output_dir <span class="ot">&lt;-</span> fs<span class="sc">::</span><span class="fu">path</span>(<span class="st">&quot;path/to/output/dir&quot;</span>)</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>arrow<span class="sc">::</span><span class="fu">open_dataset</span>(large_csv_path, <span class="at">format =</span> <span class="st">&quot;csv&quot;</span>) <span class="sc">|&gt;</span></span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">rename_with</span>(tolower) <span class="sc">|&gt;</span></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>  arrow<span class="sc">::</span><span class="fu">write_dataset</span>(</span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">path =</span> fs<span class="sc">::</span><span class="fu">path</span>(output_dir, <span class="st">&quot;large_register&quot;</span>, <span class="st">&quot;year=2020&quot;</span>),</span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">format =</span> <span class="st">&quot;parquet&quot;</span></span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>  )</span></code></pre></div>
+</div>
+<p>To follow the default Parquet partitioning name, use <code>&quot;year=__HIVE_DEFAULT_PARTIION__&quot;</code> if the file doesn’t contain a year in the name.</p>
 
 
 

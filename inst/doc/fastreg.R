@@ -127,3 +127,16 @@ bef |>
   dplyr::filter(koen == 2) |>
   dplyr::compute()
 
+
+## ----convert-large-csv--------------------------------------------------------
+#| eval: false
+# large_csv_path <- fs::path("path/to/large_register2020.csv")
+# output_dir <- fs::path("path/to/output/dir")
+# 
+# arrow::open_dataset(large_csv_path, format = "csv") |>
+#   dplyr::rename_with(tolower) |>
+#   arrow::write_dataset(
+#     path = fs::path(output_dir, "large_register", "year=2020"),
+#     format = "parquet"
+#   )
+
